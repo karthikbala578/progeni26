@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { collection, getDocs } from "firebase/firestore";
-import { db } from "../firebase";
+import { db, auth } from "../firebase";
+import { signOut } from "firebase/auth";
+import { useNavigate } from "react-router-dom";
 
 import jsPDF from "jspdf";
 import * as XLSX from "xlsx";
@@ -11,7 +13,9 @@ import "./Dashboard.css";
 export default function Dashboard() {
   const [registrations, setRegistrations] = useState([]);
   const [search, setSearch] = useState("");
+  const navigate = useNavigate();
 
+  // ================= FETCH DATA =================
   useEffect(() => {
     const fetchData = async () => {
       const snapshot = await getDocs(collection(db, "registrations"));
@@ -25,13 +29,24 @@ export default function Dashboard() {
     fetchData();
   }, []);
 
+  // ================= LOGOUT =================
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      navigate("/");
+    } catch (error) {
+      console.error("Logout Error:", error);
+    }
+  };
+
+  // ================= FILTER =================
   const filteredData = registrations.filter(
     (item) =>
       item.name?.toLowerCase().includes(search.toLowerCase()) ||
       item.pro_number?.toLowerCase().includes(search.toLowerCase())
   );
 
-  // Convert Image to Base64
+  // ================= IMAGE CONVERTER =================
   const getBase64FromUrl = async (url) => {
     const res = await fetch(url);
     const blob = await res.blob();
@@ -47,55 +62,23 @@ export default function Dashboard() {
   const generatePDF = async () => {
     const doc = new jsPDF();
 
-    // ================= COVER PAGE =================
     doc.setFont("helvetica", "bold");
     doc.setFontSize(24);
-    doc.text("PROGENI 2026", 105, 40, { align: "center" });
+    doc.text("PROGENI'26", 105, 40, { align: "center" });
 
     doc.setFontSize(16);
-    doc.text("Government College of Engineering, Salem", 105, 55, {
-      align: "center",
-    });
+    doc.text("Government College of Engineering, Salem", 105, 55, { align: "center" });
 
     doc.setFontSize(18);
     doc.text("Registration Report", 105, 75, { align: "center" });
 
     doc.setFont("helvetica", "normal");
     doc.setFontSize(12);
-    doc.text(`Total Registrations: ${registrations.length}`, 105, 95, {
-      align: "center",
-    });
-    doc.text(`Generated On: ${new Date().toLocaleString()}`, 105, 105, {
-      align: "center",
-    });
+    doc.text(`Total Registrations: ${registrations.length}`, 105, 95, { align: "center" });
+    doc.text(`Generated On: ${new Date().toLocaleString()}`, 105, 105, { align: "center" });
 
     doc.addPage();
 
-    // ================= SUMMARY PAGE =================
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(18);
-    doc.text("Summary Statistics", 14, 20);
-
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(12);
-
-    const deptCount = {};
-    registrations.forEach((r) => {
-      deptCount[r.department] = (deptCount[r.department] || 0) + 1;
-    });
-
-    let y = 35;
-    doc.text("Department-wise Count:", 14, y);
-    y += 10;
-
-    Object.keys(deptCount).forEach((dept) => {
-      doc.text(`${dept}: ${deptCount[dept]}`, 20, y);
-      y += 8;
-    });
-
-    doc.addPage();
-
-    // ================= PARTICIPANT PAGES =================
     for (let i = 0; i < registrations.length; i++) {
       const reg = registrations[i];
 
@@ -106,45 +89,33 @@ export default function Dashboard() {
       doc.setFont("helvetica", "normal");
       doc.setFontSize(12);
 
-      let startY = 30;
-      const space = 8;
+      let y = 30;
+      const gap = 8;
 
-      doc.text(`Name: ${reg.name}`, 14, startY);
-      startY += space;
-      doc.text(`College: ${reg.college}`, 14, startY);
-      startY += space;
-      doc.text(`Department: ${reg.department}`, 14, startY);
-      startY += space;
-      doc.text(`Year: ${reg.year}`, 14, startY);
-      startY += space;
-      doc.text(`Phone: ${reg.phone}`, 14, startY);
-      startY += space;
-      doc.text(`Email: ${reg.email}`, 14, startY);
-      startY += space;
-      doc.text(`PRO Number: ${reg.pro_number}`, 14, startY);
-      startY += space;
-      doc.text(`Transaction ID: ${reg.txnId}`, 14, startY);
-      startY += space + 4;
+      doc.text(`Name: ${reg.name}`, 14, y); y += gap;
+      doc.text(`College: ${reg.college}`, 14, y); y += gap;
+      doc.text(`Department: ${reg.department}`, 14, y); y += gap;
+      doc.text(`Year: ${reg.year}`, 14, y); y += gap;
+      doc.text(`Phone: ${reg.phone}`, 14, y); y += gap;
+      doc.text(`Email: ${reg.email}`, 14, y); y += gap;
+      doc.text(`PRO Number: ${reg.pro_number}`, 14, y); y += gap;
+      doc.text(`Transaction ID: ${reg.txnId}`, 14, y); y += gap + 4;
 
       doc.setFont("helvetica", "bold");
-      doc.text("Tech Events:", 14, startY);
-      startY += space;
+      doc.text("Tech Events:", 14, y); y += gap;
       doc.setFont("helvetica", "normal");
-      doc.text(reg.techEvents?.join(", ") || "None", 20, startY);
-      startY += space + 4;
+      doc.text(reg.techEvents?.join(", ") || "None", 20, y);
+      y += gap + 4;
 
       doc.setFont("helvetica", "bold");
-      doc.text("Non-Tech Events:", 14, startY);
-      startY += space;
+      doc.text("Non-Tech Events:", 14, y); y += gap;
       doc.setFont("helvetica", "normal");
-      doc.text(reg.nonTechEvents?.join(", ") || "None", 20, startY);
-      startY += space + 6;
+      doc.text(reg.nonTechEvents?.join(", ") || "None", 20, y);
+      y += gap + 6;
 
-      // ===== LARGE SCREENSHOT =====
       if (reg.screenshot) {
         try {
           const base64 = await getBase64FromUrl(reg.screenshot);
-
           const img = new Image();
           img.src = base64;
 
@@ -153,8 +124,8 @@ export default function Dashboard() {
           });
 
           doc.setFont("helvetica", "bold");
-          doc.text("Payment Screenshot:", 14, startY);
-          startY += 10;
+          doc.text("Payment Screenshot:", 14, y);
+          y += 10;
 
           const pageWidth = doc.internal.pageSize.getWidth();
           const maxWidth = 170;
@@ -169,7 +140,8 @@ export default function Dashboard() {
 
           const x = (pageWidth - width) / 2;
 
-          doc.addImage(base64, "JPEG", x, startY, width, height);
+          doc.addImage(base64, "JPEG", x, y, width, height);
+
         } catch (err) {
           console.log("Image load failed");
         }
@@ -183,8 +155,8 @@ export default function Dashboard() {
     doc.save("PROGENI_Formatted_Report.pdf");
   };
 
+  // ================= EXCEL GENERATOR =================
   const generateExcel = () => {
-    // Convert data into clean Excel format
     const excelData = registrations.map((reg) => ({
       Name: reg.name,
       College: reg.college,
@@ -199,14 +171,10 @@ export default function Dashboard() {
       Screenshot_URL: reg.screenshot || "",
     }));
 
-    // Create worksheet
     const worksheet = XLSX.utils.json_to_sheet(excelData);
-
-    // Create workbook
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Registrations");
 
-    // Generate file
     const excelBuffer = XLSX.write(workbook, {
       bookType: "xlsx",
       type: "array",
@@ -219,10 +187,15 @@ export default function Dashboard() {
     saveAs(data, "PROGENI_Registrations.xlsx");
   };
 
-return (
-  <div className="dashboard-container">
-    <div className="dashboard-header">
-      <h1>Admin Dashboard</h1>
+  // ================= UI =================
+  return (
+    <div className="dashboard-container">
+      <div className="dashboard-top">
+        <h1>Admin Dashboard</h1>
+        <button className="logout-btn" onClick={handleLogout}>
+          Logout
+        </button>
+      </div>
 
       <div className="stats-card">
         Total Registrations: {registrations.length}
@@ -243,32 +216,31 @@ return (
           Download Excel
         </button>
       </div>
-    </div>
 
-    <div className="table-wrapper">
-      <table>
-        <thead>
-          <tr>
-            <th>Name</th>
-            <th>College</th>
-            <th>Department</th>
-            <th>Year</th>
-            <th>Txn ID</th>
-          </tr>
-        </thead>
-        <tbody>
-          {filteredData.map((reg) => (
-            <tr key={reg.id}>
-              <td>{reg.name}</td>
-              <td>{reg.college}</td>
-              <td>{reg.department}</td>
-              <td>{reg.year}</td>
-              <td>{reg.txnId}</td>
+      <div className="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>College</th>
+              <th>Department</th>
+              <th>Year</th>
+              <th>Txn ID</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {filteredData.map((reg) => (
+              <tr key={reg.id}>
+                <td>{reg.name}</td>
+                <td>{reg.college}</td>
+                <td>{reg.department}</td>
+                <td>{reg.year}</td>
+                <td>{reg.txnId}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
-  </div>
-);
+  );
 }
