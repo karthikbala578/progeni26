@@ -3,6 +3,8 @@ import { collection, getDocs } from "firebase/firestore";
 import { db } from "../firebase";
 
 import jsPDF from "jspdf";
+import * as XLSX from "xlsx";
+import { saveAs } from "file-saver";
 
 export default function Dashboard() {
   const [registrations, setRegistrations] = useState([]);
@@ -11,9 +13,9 @@ export default function Dashboard() {
   useEffect(() => {
     const fetchData = async () => {
       const snapshot = await getDocs(collection(db, "registrations"));
-      const list = snapshot.docs.map(doc => ({
+      const list = snapshot.docs.map((doc) => ({
         id: doc.id,
-        ...doc.data()
+        ...doc.data(),
       }));
       setRegistrations(list);
     };
@@ -21,9 +23,10 @@ export default function Dashboard() {
     fetchData();
   }, []);
 
-  const filteredData = registrations.filter(item =>
-    item.name?.toLowerCase().includes(search.toLowerCase()) ||
-    item.pro_number?.toLowerCase().includes(search.toLowerCase())
+  const filteredData = registrations.filter(
+    (item) =>
+      item.name?.toLowerCase().includes(search.toLowerCase()) ||
+      item.pro_number?.toLowerCase().includes(search.toLowerCase())
   );
 
   // Convert Image to Base64
@@ -48,15 +51,21 @@ export default function Dashboard() {
     doc.text("PROGENI 2026", 105, 40, { align: "center" });
 
     doc.setFontSize(16);
-    doc.text("Government College of Engineering, Salem", 105, 55, { align: "center" });
+    doc.text("Government College of Engineering, Salem", 105, 55, {
+      align: "center",
+    });
 
     doc.setFontSize(18);
     doc.text("Registration Report", 105, 75, { align: "center" });
 
     doc.setFont("helvetica", "normal");
     doc.setFontSize(12);
-    doc.text(`Total Registrations: ${registrations.length}`, 105, 95, { align: "center" });
-    doc.text(`Generated On: ${new Date().toLocaleString()}`, 105, 105, { align: "center" });
+    doc.text(`Total Registrations: ${registrations.length}`, 105, 95, {
+      align: "center",
+    });
+    doc.text(`Generated On: ${new Date().toLocaleString()}`, 105, 105, {
+      align: "center",
+    });
 
     doc.addPage();
 
@@ -69,7 +78,7 @@ export default function Dashboard() {
     doc.setFontSize(12);
 
     const deptCount = {};
-    registrations.forEach(r => {
+    registrations.forEach((r) => {
       deptCount[r.department] = (deptCount[r.department] || 0) + 1;
     });
 
@@ -77,7 +86,7 @@ export default function Dashboard() {
     doc.text("Department-wise Count:", 14, y);
     y += 10;
 
-    Object.keys(deptCount).forEach(dept => {
+    Object.keys(deptCount).forEach((dept) => {
       doc.text(`${dept}: ${deptCount[dept]}`, 20, y);
       y += 8;
     });
@@ -98,23 +107,33 @@ export default function Dashboard() {
       let startY = 30;
       const space = 8;
 
-      doc.text(`Name: ${reg.name}`, 14, startY); startY += space;
-      doc.text(`College: ${reg.college}`, 14, startY); startY += space;
-      doc.text(`Department: ${reg.department}`, 14, startY); startY += space;
-      doc.text(`Year: ${reg.year}`, 14, startY); startY += space;
-      doc.text(`Phone: ${reg.phone}`, 14, startY); startY += space;
-      doc.text(`Email: ${reg.email}`, 14, startY); startY += space;
-      doc.text(`PRO Number: ${reg.pro_number}`, 14, startY); startY += space;
-      doc.text(`Transaction ID: ${reg.txnId}`, 14, startY); startY += space + 4;
+      doc.text(`Name: ${reg.name}`, 14, startY);
+      startY += space;
+      doc.text(`College: ${reg.college}`, 14, startY);
+      startY += space;
+      doc.text(`Department: ${reg.department}`, 14, startY);
+      startY += space;
+      doc.text(`Year: ${reg.year}`, 14, startY);
+      startY += space;
+      doc.text(`Phone: ${reg.phone}`, 14, startY);
+      startY += space;
+      doc.text(`Email: ${reg.email}`, 14, startY);
+      startY += space;
+      doc.text(`PRO Number: ${reg.pro_number}`, 14, startY);
+      startY += space;
+      doc.text(`Transaction ID: ${reg.txnId}`, 14, startY);
+      startY += space + 4;
 
       doc.setFont("helvetica", "bold");
-      doc.text("Tech Events:", 14, startY); startY += space;
+      doc.text("Tech Events:", 14, startY);
+      startY += space;
       doc.setFont("helvetica", "normal");
       doc.text(reg.techEvents?.join(", ") || "None", 20, startY);
       startY += space + 4;
 
       doc.setFont("helvetica", "bold");
-      doc.text("Non-Tech Events:", 14, startY); startY += space;
+      doc.text("Non-Tech Events:", 14, startY);
+      startY += space;
       doc.setFont("helvetica", "normal");
       doc.text(reg.nonTechEvents?.join(", ") || "None", 20, startY);
       startY += space + 6;
@@ -127,7 +146,7 @@ export default function Dashboard() {
           const img = new Image();
           img.src = base64;
 
-          await new Promise(resolve => {
+          await new Promise((resolve) => {
             img.onload = resolve;
           });
 
@@ -149,7 +168,6 @@ export default function Dashboard() {
           const x = (pageWidth - width) / 2;
 
           doc.addImage(base64, "JPEG", x, startY, width, height);
-
         } catch (err) {
           console.log("Image load failed");
         }
@@ -161,6 +179,42 @@ export default function Dashboard() {
     }
 
     doc.save("PROGENI_Formatted_Report.pdf");
+  };
+
+  const generateExcel = () => {
+    // Convert data into clean Excel format
+    const excelData = registrations.map((reg) => ({
+      Name: reg.name,
+      College: reg.college,
+      Department: reg.department,
+      Year: reg.year,
+      Phone: reg.phone,
+      Email: reg.email,
+      PRO_Number: reg.pro_number,
+      Transaction_ID: reg.txnId,
+      Tech_Events: reg.techEvents?.join(", ") || "",
+      Non_Tech_Events: reg.nonTechEvents?.join(", ") || "",
+      Screenshot_URL: reg.screenshot || "",
+    }));
+
+    // Create worksheet
+    const worksheet = XLSX.utils.json_to_sheet(excelData);
+
+    // Create workbook
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Registrations");
+
+    // Generate file
+    const excelBuffer = XLSX.write(workbook, {
+      bookType: "xlsx",
+      type: "array",
+    });
+
+    const data = new Blob([excelBuffer], {
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    });
+
+    saveAs(data, "PROGENI_Registrations.xlsx");
   };
 
   return (
@@ -183,10 +237,24 @@ export default function Dashboard() {
           backgroundColor: "#4CAF50",
           color: "white",
           border: "none",
-          cursor: "pointer"
+          cursor: "pointer",
         }}
       >
         Download FULL Formatted PDF
+      </button>
+
+      <button
+        onClick={generateExcel}
+        style={{
+          padding: "8px 12px",
+          backgroundColor: "#1D6F42",
+          color: "white",
+          border: "none",
+          cursor: "pointer",
+          marginLeft: "10px",
+        }}
+      >
+        Download Excel Report
       </button>
 
       <table
@@ -205,7 +273,7 @@ export default function Dashboard() {
           </tr>
         </thead>
         <tbody>
-          {filteredData.map(reg => (
+          {filteredData.map((reg) => (
             <tr key={reg.id}>
               <td>{reg.name}</td>
               <td>{reg.college}</td>
