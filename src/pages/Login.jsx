@@ -2,6 +2,7 @@ import { useState } from "react";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { auth } from "../firebase";
 import { useNavigate } from "react-router-dom";
+import "./login.css";
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -18,29 +19,24 @@ export default function Login() {
   };
 
   return (
-    <div style={styles.container}>
-      <h2>Admin Login</h2>
-      <input 
-        type="email" 
-        placeholder="Email" 
-        onChange={(e) => setEmail(e.target.value)} 
-      />
-      <input 
-        type="password" 
-        placeholder="Password" 
-        onChange={(e) => setPassword(e.target.value)} 
-      />
-      <button onClick={handleLogin}>Login</button>
+    <div className="login-wrapper">
+      <div className="login-card">
+        <h2>Admin Login</h2>
+
+        <input
+          type="email"
+          placeholder="Email"
+          onChange={(e) => setEmail(e.target.value)}
+        />
+
+        <input
+          type="password"
+          placeholder="Password"
+          onChange={(e) => setPassword(e.target.value)}
+        />
+
+        <button onClick={handleLogin}>Login</button>
+      </div>
     </div>
   );
 }
-
-const styles = {
-  container: {
-    width: "300px",
-    margin: "100px auto",
-    display: "flex",
-    flexDirection: "column",
-    gap: "10px"
-  }
-};

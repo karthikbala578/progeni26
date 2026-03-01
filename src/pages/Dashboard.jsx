@@ -6,6 +6,8 @@ import jsPDF from "jspdf";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 
+import "./Dashboard.css";
+
 export default function Dashboard() {
   const [registrations, setRegistrations] = useState([]);
   const [search, setSearch] = useState("");
@@ -217,59 +219,41 @@ export default function Dashboard() {
     saveAs(data, "PROGENI_Registrations.xlsx");
   };
 
-  return (
-    <div style={{ padding: "20px" }}>
+return (
+  <div className="dashboard-container">
+    <div className="dashboard-header">
       <h1>Admin Dashboard</h1>
 
-      <h3>Total Registrations: {registrations.length}</h3>
+      <div className="stats-card">
+        Total Registrations: {registrations.length}
+      </div>
 
-      <input
-        type="text"
-        placeholder="Search by Name or PRO Number"
-        onChange={(e) => setSearch(e.target.value)}
-        style={{ padding: "6px", marginRight: "10px" }}
-      />
+      <div className="dashboard-controls">
+        <input
+          type="text"
+          placeholder="Search by Name or PRO Number"
+          onChange={(e) => setSearch(e.target.value)}
+        />
 
-      <button
-        onClick={generatePDF}
-        style={{
-          padding: "8px 12px",
-          backgroundColor: "#4CAF50",
-          color: "white",
-          border: "none",
-          cursor: "pointer",
-        }}
-      >
-        Download FULL Formatted PDF
-      </button>
+        <button className="pdf-btn" onClick={generatePDF}>
+          Download PDF
+        </button>
 
-      <button
-        onClick={generateExcel}
-        style={{
-          padding: "8px 12px",
-          backgroundColor: "#1D6F42",
-          color: "white",
-          border: "none",
-          cursor: "pointer",
-          marginLeft: "10px",
-        }}
-      >
-        Download Excel Report
-      </button>
+        <button className="excel-btn" onClick={generateExcel}>
+          Download Excel
+        </button>
+      </div>
+    </div>
 
-      <table
-        border="1"
-        cellPadding="10"
-        width="100%"
-        style={{ marginTop: "20px", borderCollapse: "collapse" }}
-      >
+    <div className="table-wrapper">
+      <table>
         <thead>
           <tr>
             <th>Name</th>
             <th>College</th>
-            <th>Dept</th>
+            <th>Department</th>
             <th>Year</th>
-            <th>Txn</th>
+            <th>Txn ID</th>
           </tr>
         </thead>
         <tbody>
@@ -285,5 +269,6 @@ export default function Dashboard() {
         </tbody>
       </table>
     </div>
-  );
+  </div>
+);
 }
