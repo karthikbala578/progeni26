@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { collection, getDocs } from "firebase/firestore";
+import { collection, getDocs, updateDoc, doc } from "firebase/firestore";
 import { db, auth } from "../firebase";
 import { signOut } from "firebase/auth";
 import { useNavigate } from "react-router-dom";
@@ -33,8 +33,7 @@ export default function Dashboard() {
         ...doc.data(),
       }));
 
-      const sortedList = sortByProNumber(list);
-      setRegistrations(sortedList);
+      setRegistrations(sortByProNumber(list));
     };
 
     fetchData();
@@ -42,15 +41,27 @@ export default function Dashboard() {
 
   // ================= LOGOUT =================
   const handleLogout = async () => {
+    await signOut(auth);
+    navigate("/");
+  };
+
+  // ================= UPDATE STATUS =================
+  const updateValidationStatus = async (id, status) => {
     try {
-      await signOut(auth);
-      navigate("/");
-    } catch (error) {
-      console.error("Logout Error:", error);
+      const docRef = doc(db, "registrations", id);
+      await updateDoc(docRef, { isvalid: status });
+
+      setRegistrations((prev) =>
+        prev.map((item) =>
+          item.id === id ? { ...item, isvalid: status } : item
+        )
+      );
+    } catch (err) {
+      console.error("Update Error:", err);
     }
   };
 
-  // ================= FILTER + SORT =================
+  // ================= FILTER =================
   const filteredData = sortByProNumber(
     registrations.filter(
       (item) =>
@@ -59,94 +70,98 @@ export default function Dashboard() {
     )
   );
 
-  // ================= IMAGE CONVERTER =================
+  // ================= IMAGE TO BASE64 =================
   const getBase64FromUrl = async (url) => {
-    const res = await fetch(url);
-    const blob = await res.blob();
+    const response = await fetch(url, { mode: "cors" });
+    const blob = await response.blob();
 
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onloadend = () => resolve(reader.result);
+      reader.onerror = reject;
       reader.readAsDataURL(blob);
     });
   };
 
-  // ================= PDF GENERATOR =================
+  // ================= PDF =================
   const generatePDF = async () => {
-    const doc = new jsPDF();
+    const docPDF = new jsPDF();
     const sortedData = sortByProNumber(registrations);
 
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(24);
-    doc.text("PROGENI'26", 105, 40, { align: "center" });
-
-    doc.setFontSize(16);
-    doc.text("Government College of Engineering, Salem", 105, 55, {
+    docPDF.setFontSize(22);
+    docPDF.text("PROGENI'26 - Registration Report", 105, 30, {
       align: "center",
     });
 
-    doc.setFontSize(18);
-    doc.text("Registration Report", 105, 75, { align: "center" });
+    docPDF.setFontSize(12);
+    docPDF.text(
+      `Total Registrations: ${sortedData.length}`,
+      105,
+      45,
+      { align: "center" }
+    );
 
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(12);
-    doc.text(`Total Registrations: ${sortedData.length}`, 105, 95, {
-      align: "center",
-    });
-    doc.text(`Generated On: ${new Date().toLocaleString()}`, 105, 105, {
-      align: "center",
-    });
-
-    doc.addPage();
+    docPDF.addPage();
 
     for (let i = 0; i < sortedData.length; i++) {
       const reg = sortedData[i];
 
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(16);
-      doc.text(`PRO ID: ${reg.pro_number}`, 14, 20);
-
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(12);
+      docPDF.setFontSize(14);
+      docPDF.text(`PRO ID: ${reg.pro_number}`, 14, 20);
 
       let y = 30;
       const gap = 8;
 
-      doc.text(`Name: ${reg.name}`, 14, y); y += gap;
-      doc.text(`College: ${reg.college}`, 14, y); y += gap;
-      doc.text(`Department: ${reg.department}`, 14, y); y += gap;
-      doc.text(`Year: ${reg.year}`, 14, y); y += gap;
-      doc.text(`Phone: ${reg.phone}`, 14, y); y += gap;
-      doc.text(`Email: ${reg.email}`, 14, y); y += gap;
-      doc.text(`Transaction ID: ${reg.txnId}`, 14, y); y += gap + 4;
+      docPDF.setFontSize(11);
+      docPDF.text(`Name: ${reg.name}`, 14, y); y += gap;
+      docPDF.text(`College: ${reg.college}`, 14, y); y += gap;
+      docPDF.text(`Department: ${reg.department}`, 14, y); y += gap;
+      docPDF.text(`Year: ${reg.year}`, 14, y); y += gap;
+      docPDF.text(`Phone: ${reg.phone}`, 14, y); y += gap;
+      docPDF.text(`Email: ${reg.email}`, 14, y); y += gap;
+      docPDF.text(`Transaction ID: ${reg.txnId}`, 14, y); y += gap;
 
-      doc.setFont("helvetica", "bold");
-      doc.text("Tech Events:", 14, y); y += gap;
-      doc.setFont("helvetica", "normal");
-      doc.text(reg.techEvents?.join(", ") || "None", 20, y);
+      // 🔥 EVENTS ADDED
+      docPDF.text("Tech Events:", 14, y); y += gap;
+      docPDF.text(
+        reg.techEvents?.length ? reg.techEvents.join(", ") : "None",
+        20,
+        y
+      );
+      y += gap + 2;
+
+      docPDF.text("Non-Tech Events:", 14, y); y += gap;
+      docPDF.text(
+        reg.nonTechEvents?.length ? reg.nonTechEvents.join(", ") : "None",
+        20,
+        y
+      );
       y += gap + 4;
 
-      doc.setFont("helvetica", "bold");
-      doc.text("Non-Tech Events:", 14, y); y += gap;
-      doc.setFont("helvetica", "normal");
-      doc.text(reg.nonTechEvents?.join(", ") || "None", 20, y);
-      y += gap + 6;
+      docPDF.text(
+        `Status: ${
+          reg.isvalid === 1
+            ? "Valid"
+            : reg.isvalid === 0
+            ? "Invalid"
+            : "Pending"
+        }`,
+        14,
+        y
+      );
 
+      y += 10;
+
+      // 🔥 SCREENSHOT
       if (reg.screenshot) {
         try {
           const base64 = await getBase64FromUrl(reg.screenshot);
           const img = new Image();
           img.src = base64;
 
-          await new Promise((resolve) => {
-            img.onload = resolve;
-          });
+          await new Promise((resolve) => (img.onload = resolve));
 
-          doc.setFont("helvetica", "bold");
-          doc.text("Payment Screenshot:", 14, y);
-          y += 10;
-
-          const pageWidth = doc.internal.pageSize.getWidth();
+          const pageWidth = docPDF.internal.pageSize.getWidth();
           const maxWidth = 170;
           const maxHeight = 130;
 
@@ -158,23 +173,23 @@ export default function Dashboard() {
           height *= ratio;
 
           const x = (pageWidth - width) / 2;
+          const imageType = base64.includes("png") ? "PNG" : "JPEG";
 
-          doc.addImage(base64, "JPEG", x, y, width, height);
-
+          docPDF.addImage(base64, imageType, x, y, width, height);
         } catch (err) {
-          console.log("Image load failed");
+          console.log("Image load failed:", err);
         }
       }
 
       if (i !== sortedData.length - 1) {
-        doc.addPage();
+        docPDF.addPage();
       }
     }
 
-    doc.save("PROGENI_Formatted_Report.pdf");
+    docPDF.save("PROGENI_Report.pdf");
   };
 
-  // ================= EXCEL GENERATOR =================
+  // ================= EXCEL ALL =================
   const generateExcel = () => {
     const sortedData = sortByProNumber(registrations);
 
@@ -187,8 +202,16 @@ export default function Dashboard() {
       Phone: reg.phone,
       Email: reg.email,
       Transaction_ID: reg.txnId,
-      Tech_Events: reg.techEvents?.join(", ") || "",
-      Non_Tech_Events: reg.nonTechEvents?.join(", ") || "",
+      Tech_Events: reg.techEvents?.length ? reg.techEvents.join(", ") : "None",
+      Non_Tech_Events: reg.nonTechEvents?.length
+        ? reg.nonTechEvents.join(", ")
+        : "None",
+      Status:
+        reg.isvalid === 1
+          ? "Valid"
+          : reg.isvalid === 0
+          ? "Invalid"
+          : "Pending",
       Screenshot_URL: reg.screenshot || "",
     }));
 
@@ -201,11 +224,57 @@ export default function Dashboard() {
       type: "array",
     });
 
-    const data = new Blob([excelBuffer], {
-      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    saveAs(
+      new Blob([excelBuffer], {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      }),
+      "PROGENI_Registrations.xlsx"
+    );
+  };
+
+  // ================= EXCEL VALID ONLY =================
+  const generateValidExcel = () => {
+    const validOnly = sortByProNumber(registrations).filter(
+      (reg) => reg.isvalid === 1
+    );
+
+    if (!validOnly.length) {
+      alert("No valid registrations found!");
+      return;
+    }
+
+    const excelData = validOnly.map((reg) => ({
+      PRO_ID: reg.pro_number,
+      Name: reg.name,
+      College: reg.college,
+      Department: reg.department,
+      Year: reg.year,
+      Phone: reg.phone,
+      Email: reg.email,
+      Transaction_ID: reg.txnId,
+      Tech_Events: reg.techEvents?.length ? reg.techEvents.join(", ") : "None",
+      Non_Tech_Events: reg.nonTechEvents?.length
+        ? reg.nonTechEvents.join(", ")
+        : "None",
+      Status: "Valid",
+      Screenshot_URL: reg.screenshot || "",
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(excelData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Valid_Registrations");
+
+    const excelBuffer = XLSX.write(workbook, {
+      bookType: "xlsx",
+      type: "array",
     });
 
-    saveAs(data, "PROGENI_Registrations.xlsx");
+    saveAs(
+      new Blob([excelBuffer], {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      }),
+      "PROGENI_Valid_Registrations.xlsx"
+    );
   };
 
   // ================= UI =================
@@ -236,6 +305,10 @@ export default function Dashboard() {
         <button className="excel-btn" onClick={generateExcel}>
           Download Excel
         </button>
+
+        <button className="valid-excel-btn" onClick={generateValidExcel}>
+          Download Valid Excel
+        </button>
       </div>
 
       <div className="table-wrapper">
@@ -248,8 +321,11 @@ export default function Dashboard() {
               <th>Department</th>
               <th>Year</th>
               <th>Txn ID</th>
+              <th>Status</th>
+              <th>Action</th>
             </tr>
           </thead>
+
           <tbody>
             {filteredData.map((reg) => (
               <tr key={reg.id}>
@@ -259,6 +335,48 @@ export default function Dashboard() {
                 <td>{reg.department}</td>
                 <td>{reg.year}</td>
                 <td>{reg.txnId}</td>
+
+                <td>
+                  <span
+                    className={`status ${
+                      reg.isvalid === 1
+                        ? "valid"
+                        : reg.isvalid === 0
+                        ? "invalid"
+                        : "pending"
+                    }`}
+                  >
+                    {reg.isvalid === 1
+                      ? "Valid"
+                      : reg.isvalid === 0
+                      ? "Invalid"
+                      : "Pending"}
+                  </span>
+                </td>
+
+                <td>
+                  <div className="action-group">
+                    <button
+                      className={`action-btn approve ${
+                        reg.isvalid === 1 ? "disabled" : ""
+                      }`}
+                      disabled={reg.isvalid === 1}
+                      onClick={() => updateValidationStatus(reg.id, 1)}
+                    >
+                      ✔
+                    </button>
+
+                    <button
+                      className={`action-btn reject ${
+                        reg.isvalid === 0 ? "disabled" : ""
+                      }`}
+                      disabled={reg.isvalid === 0}
+                      onClick={() => updateValidationStatus(reg.id, 0)}
+                    >
+                      ✖
+                    </button>
+                  </div>
+                </td>
               </tr>
             ))}
           </tbody>
