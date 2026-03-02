@@ -15,6 +15,15 @@ export default function Dashboard() {
   const [search, setSearch] = useState("");
   const navigate = useNavigate();
 
+  // ================= SORT FUNCTION =================
+  const sortByProNumber = (data) => {
+    return [...data].sort((a, b) => {
+      const numA = parseInt(a.pro_number?.replace(/\D/g, "")) || 0;
+      const numB = parseInt(b.pro_number?.replace(/\D/g, "")) || 0;
+      return numA - numB;
+    });
+  };
+
   // ================= FETCH DATA =================
   useEffect(() => {
     const fetchData = async () => {
@@ -23,7 +32,9 @@ export default function Dashboard() {
         id: doc.id,
         ...doc.data(),
       }));
-      setRegistrations(list);
+
+      const sortedList = sortByProNumber(list);
+      setRegistrations(sortedList);
     };
 
     fetchData();
@@ -39,11 +50,13 @@ export default function Dashboard() {
     }
   };
 
-  // ================= FILTER =================
-  const filteredData = registrations.filter(
-    (item) =>
-      item.name?.toLowerCase().includes(search.toLowerCase()) ||
-      item.pro_number?.toLowerCase().includes(search.toLowerCase())
+  // ================= FILTER + SORT =================
+  const filteredData = sortByProNumber(
+    registrations.filter(
+      (item) =>
+        item.name?.toLowerCase().includes(search.toLowerCase()) ||
+        item.pro_number?.toLowerCase().includes(search.toLowerCase())
+    )
   );
 
   // ================= IMAGE CONVERTER =================
@@ -61,30 +74,37 @@ export default function Dashboard() {
   // ================= PDF GENERATOR =================
   const generatePDF = async () => {
     const doc = new jsPDF();
+    const sortedData = sortByProNumber(registrations);
 
     doc.setFont("helvetica", "bold");
     doc.setFontSize(24);
     doc.text("PROGENI'26", 105, 40, { align: "center" });
 
     doc.setFontSize(16);
-    doc.text("Government College of Engineering, Salem", 105, 55, { align: "center" });
+    doc.text("Government College of Engineering, Salem", 105, 55, {
+      align: "center",
+    });
 
     doc.setFontSize(18);
     doc.text("Registration Report", 105, 75, { align: "center" });
 
     doc.setFont("helvetica", "normal");
     doc.setFontSize(12);
-    doc.text(`Total Registrations: ${registrations.length}`, 105, 95, { align: "center" });
-    doc.text(`Generated On: ${new Date().toLocaleString()}`, 105, 105, { align: "center" });
+    doc.text(`Total Registrations: ${sortedData.length}`, 105, 95, {
+      align: "center",
+    });
+    doc.text(`Generated On: ${new Date().toLocaleString()}`, 105, 105, {
+      align: "center",
+    });
 
     doc.addPage();
 
-    for (let i = 0; i < registrations.length; i++) {
-      const reg = registrations[i];
+    for (let i = 0; i < sortedData.length; i++) {
+      const reg = sortedData[i];
 
       doc.setFont("helvetica", "bold");
       doc.setFontSize(16);
-      doc.text(`Participant ${i + 1}`, 14, 20);
+      doc.text(`PRO ID: ${reg.pro_number}`, 14, 20);
 
       doc.setFont("helvetica", "normal");
       doc.setFontSize(12);
@@ -98,7 +118,6 @@ export default function Dashboard() {
       doc.text(`Year: ${reg.year}`, 14, y); y += gap;
       doc.text(`Phone: ${reg.phone}`, 14, y); y += gap;
       doc.text(`Email: ${reg.email}`, 14, y); y += gap;
-      doc.text(`PRO Number: ${reg.pro_number}`, 14, y); y += gap;
       doc.text(`Transaction ID: ${reg.txnId}`, 14, y); y += gap + 4;
 
       doc.setFont("helvetica", "bold");
@@ -147,7 +166,7 @@ export default function Dashboard() {
         }
       }
 
-      if (i !== registrations.length - 1) {
+      if (i !== sortedData.length - 1) {
         doc.addPage();
       }
     }
@@ -157,14 +176,16 @@ export default function Dashboard() {
 
   // ================= EXCEL GENERATOR =================
   const generateExcel = () => {
-    const excelData = registrations.map((reg) => ({
+    const sortedData = sortByProNumber(registrations);
+
+    const excelData = sortedData.map((reg) => ({
+      PRO_ID: reg.pro_number,
       Name: reg.name,
       College: reg.college,
       Department: reg.department,
       Year: reg.year,
       Phone: reg.phone,
       Email: reg.email,
-      PRO_Number: reg.pro_number,
       Transaction_ID: reg.txnId,
       Tech_Events: reg.techEvents?.join(", ") || "",
       Non_Tech_Events: reg.nonTechEvents?.join(", ") || "",
@@ -221,6 +242,7 @@ export default function Dashboard() {
         <table>
           <thead>
             <tr>
+              <th>PRO ID</th>
               <th>Name</th>
               <th>College</th>
               <th>Department</th>
@@ -231,6 +253,7 @@ export default function Dashboard() {
           <tbody>
             {filteredData.map((reg) => (
               <tr key={reg.id}>
+                <td>{reg.pro_number}</td>
                 <td>{reg.name}</td>
                 <td>{reg.college}</td>
                 <td>{reg.department}</td>
