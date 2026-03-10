@@ -158,3 +158,11 @@ th {
 .valid-excel-btn:hover {
   background-color: #0069d9;
 }
+
+.action-btn.mail {
+  background: #007bff;
+}
+
+.action-btn.mail:hover {
+  background: #0056b3;
+}

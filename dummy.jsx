@@ -15,7 +15,6 @@ export default function Dashboard() {
   const [search, setSearch] = useState("");
   const navigate = useNavigate();
 
-  // ================= SORT FUNCTION =================
   const sortByProNumber = (data) => {
     return [...data].sort((a, b) => {
       const numA = parseInt(a.pro_number?.replace(/\D/g, "")) || 0;
@@ -24,7 +23,6 @@ export default function Dashboard() {
     });
   };
 
-  // ================= FETCH DATA =================
   useEffect(() => {
     const fetchData = async () => {
       const snapshot = await getDocs(collection(db, "registrations"));
@@ -39,13 +37,11 @@ export default function Dashboard() {
     fetchData();
   }, []);
 
-  // ================= LOGOUT =================
   const handleLogout = async () => {
     await signOut(auth);
     navigate("/");
   };
 
-  // ================= UPDATE STATUS =================
   const updateValidationStatus = async (id, status) => {
     try {
       const docRef = doc(db, "registrations", id);
@@ -61,7 +57,6 @@ export default function Dashboard() {
     }
   };
 
-  // ================= FILTER =================
   const filteredData = sortByProNumber(
     registrations.filter(
       (item) =>
@@ -70,138 +65,21 @@ export default function Dashboard() {
     )
   );
 
-  // ================= IMAGE TO BASE64 =================
-  const getBase64FromUrl = async (url) => {
-    const response = await fetch(url, { mode: "cors" });
-    const blob = await response.blob();
-
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onloadend = () => resolve(reader.result);
-      reader.onerror = reject;
-      reader.readAsDataURL(blob);
-    });
-  };
-
-  // ================= PDF =================
-  const generatePDF = async () => {
-    const docPDF = new jsPDF();
-    const sortedData = sortByProNumber(registrations);
-
-    docPDF.setFontSize(22);
-    docPDF.text("PROGENI'26 - Registration Report", 105, 30, {
-      align: "center",
-    });
-
-    docPDF.setFontSize(12);
-    docPDF.text(
-      `Total Registrations: ${sortedData.length}`,
-      105,
-      45,
-      { align: "center" }
-    );
-
-    docPDF.addPage();
-
-    for (let i = 0; i < sortedData.length; i++) {
-      const reg = sortedData[i];
-
-      docPDF.setFontSize(14);
-      docPDF.text(`PRO ID: ${reg.pro_number}`, 14, 20);
-
-      let y = 30;
-      const gap = 8;
-
-      docPDF.setFontSize(11);
-      docPDF.text(`Name: ${reg.name}`, 14, y); y += gap;
-      docPDF.text(`College: ${reg.college}`, 14, y); y += gap;
-      docPDF.text(`Department: ${reg.department}`, 14, y); y += gap;
-      docPDF.text(`Year: ${reg.year}`, 14, y); y += gap;
-      docPDF.text(`Phone: ${reg.phone}`, 14, y); y += gap;
-      docPDF.text(`Email: ${reg.email}`, 14, y); y += gap;
-      docPDF.text(`Transaction ID: ${reg.txnId}`, 14, y); y += gap;
-
-      // 🔥 EVENTS ADDED
-      docPDF.text("Tech Events:", 14, y); y += gap;
-      docPDF.text(
-        reg.techEvents?.length ? reg.techEvents.join(", ") : "None",
-        20,
-        y
-      );
-      y += gap + 2;
-
-      docPDF.text("Non-Tech Events:", 14, y); y += gap;
-      docPDF.text(
-        reg.nonTechEvents?.length ? reg.nonTechEvents.join(", ") : "None",
-        20,
-        y
-      );
-      y += gap + 4;
-
-      docPDF.text(
-        `Status: ${
-          reg.isvalid === 1
-            ? "Valid"
-            : reg.isvalid === 0
-            ? "Invalid"
-            : "Pending"
-        }`,
-        14,
-        y
-      );
-
-      y += 10;
-
-      // 🔥 SCREENSHOT
-      if (reg.screenshot) {
-        try {
-          const base64 = await getBase64FromUrl(reg.screenshot);
-          const img = new Image();
-          img.src = base64;
-
-          await new Promise((resolve) => (img.onload = resolve));
-
-          const pageWidth = docPDF.internal.pageSize.getWidth();
-          const maxWidth = 170;
-          const maxHeight = 130;
-
-          let width = img.width;
-          let height = img.height;
-
-          const ratio = Math.min(maxWidth / width, maxHeight / height);
-          width *= ratio;
-          height *= ratio;
-
-          const x = (pageWidth - width) / 2;
-          const imageType = base64.includes("png") ? "PNG" : "JPEG";
-
-          docPDF.addImage(base64, imageType, x, y, width, height);
-        } catch (err) {
-          console.log("Image load failed:", err);
-        }
-      }
-
-      if (i !== sortedData.length - 1) {
-        docPDF.addPage();
-      }
-    }
-
-    docPDF.save("PROGENI_Report.pdf");
-  };
   // 📧 MAIL DRAFT FUNCTION
   const openEmailDraft = (reg) => {
     const subject = encodeURIComponent(
-      "Registration Confirmation for Progeni'26"
+      "Registration Confirmation for Progeni '26"
     );
 
     const body = encodeURIComponent(
 `Dear ${reg.name},
 
-Greetings from the Progeni '26 Team.
+Greetings from the Progeni ’26 Team.
 
-We are pleased to confirm that your registration for Progeni '26 – Inter College Symposium has been successfully received.
+We are pleased to confirm that your registration for Progeni ’26 – Inter College Symposium has been successfully received.
 
 Registration Details:
+
 Progeni ID: ${reg.pro_number}
 College: ${reg.college}
 Department: ${reg.department}
@@ -227,15 +105,8 @@ Note:
 Report to the registration desk with your Progeni ID (${reg.pro_number}) for verification.
 Please carry your college ID card on the event day.
 
-Further event details and schedules will be shared soon.
-
-If you have any queries, feel free to reply to this email.
-
-We look forward to your enthusiastic participation at Progeni '26!
-
-
 Best Regards,
-Progeni '26 Team
+Progeni ’26 Team
 Government College of Engineering, Salem
 Contact: 8072467509
 Email: progeni26.gce@gmail.com
@@ -247,7 +118,7 @@ Website: www.progeni26.in
 
     window.open(gmailUrl, "_blank");
   };
-  // ================= EXCEL ALL =================
+
   const generateExcel = () => {
     const sortedData = sortByProNumber(registrations);
 
@@ -260,17 +131,14 @@ Website: www.progeni26.in
       Phone: reg.phone,
       Email: reg.email,
       Transaction_ID: reg.txnId,
-      Tech_Events: reg.techEvents?.length ? reg.techEvents.join(", ") : "None",
-      Non_Tech_Events: reg.nonTechEvents?.length
-        ? reg.nonTechEvents.join(", ")
-        : "None",
+      Tech_Events: reg.techEvents?.join(", ") || "None",
+      Non_Tech_Events: reg.nonTechEvents?.join(", ") || "None",
       Status:
         reg.isvalid === 1
           ? "Valid"
           : reg.isvalid === 0
           ? "Invalid"
           : "Pending",
-      Screenshot_URL: reg.screenshot || "",
     }));
 
     const worksheet = XLSX.utils.json_to_sheet(excelData);
@@ -290,52 +158,6 @@ Website: www.progeni26.in
     );
   };
 
-  // ================= EXCEL VALID ONLY =================
-  const generateValidExcel = () => {
-    const validOnly = sortByProNumber(registrations).filter(
-      (reg) => reg.isvalid === 1
-    );
-
-    if (!validOnly.length) {
-      alert("No valid registrations found!");
-      return;
-    }
-
-    const excelData = validOnly.map((reg) => ({
-      PRO_ID: reg.pro_number,
-      Name: reg.name,
-      College: reg.college,
-      Department: reg.department,
-      Year: reg.year,
-      Phone: reg.phone,
-      Email: reg.email,
-      Transaction_ID: reg.txnId,
-      Tech_Events: reg.techEvents?.length ? reg.techEvents.join(", ") : "None",
-      Non_Tech_Events: reg.nonTechEvents?.length
-        ? reg.nonTechEvents.join(", ")
-        : "None",
-      Status: "Valid",
-      Screenshot_URL: reg.screenshot || "",
-    }));
-
-    const worksheet = XLSX.utils.json_to_sheet(excelData);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Valid_Registrations");
-
-    const excelBuffer = XLSX.write(workbook, {
-      bookType: "xlsx",
-      type: "array",
-    });
-
-    saveAs(
-      new Blob([excelBuffer], {
-        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      }),
-      "PROGENI_Valid_Registrations.xlsx"
-    );
-  };
-
-  // ================= UI =================
   return (
     <div className="dashboard-container">
       <div className="dashboard-top">
@@ -356,16 +178,8 @@ Website: www.progeni26.in
           onChange={(e) => setSearch(e.target.value)}
         />
 
-        <button className="pdf-btn" onClick={generatePDF}>
-          Download PDF
-        </button>
-
         <button className="excel-btn" onClick={generateExcel}>
           Download Excel
-        </button>
-
-        <button className="valid-excel-btn" onClick={generateValidExcel}>
-          Download Valid Excel
         </button>
       </div>
 
@@ -415,26 +229,20 @@ Website: www.progeni26.in
                 <td>
                   <div className="action-group">
                     <button
-                      className={`action-btn approve ${
-                        reg.isvalid === 1 ? "disabled" : ""
-                      }`}
-                      disabled={reg.isvalid === 1}
+                      className="action-btn approve"
                       onClick={() => updateValidationStatus(reg.id, 1)}
                     >
                       ✔
                     </button>
 
                     <button
-                      className={`action-btn reject ${
-                        reg.isvalid === 0 ? "disabled" : ""
-                      }`}
-                      disabled={reg.isvalid === 0}
+                      className="action-btn reject"
                       onClick={() => updateValidationStatus(reg.id, 0)}
                     >
                       ✖
                     </button>
 
-                     {/* 📧 Draft Mail Button */}
+                    {/* 📧 Draft Mail Button */}
                     <button
                       className="action-btn mail"
                       onClick={() => openEmailDraft(reg)}
@@ -443,6 +251,7 @@ Website: www.progeni26.in
                     </button>
                   </div>
                 </td>
+
               </tr>
             ))}
           </tbody>
